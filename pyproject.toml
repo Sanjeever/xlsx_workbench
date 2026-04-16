@@ -1,0 +1,23 @@
+[project]
+name = "xlsx-workbench"
+version = "0.1.0"
+description = "AI-powered xlsx analysis workbench"
+requires-python = ">=3.11"
+dependencies = [
+    "pandas>=2.2",
+    "openpyxl>=3.1",
+    "matplotlib>=3.8",
+    "seaborn>=0.13",
+    "rich>=13.0",
+    "tabulate>=0.10.0",
+]
+
+[dependency-groups]
+dev = [
+    "jupyter>=1.0",
+    "ipykernel>=6.0",
+]
+
+[[tool.uv.index]]
+url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+default = true

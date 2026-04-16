@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv sync:*)",
+      "Skill(explore-xlsx)",
+      "Bash(uv run:*)",
+      "Bash(echo \"Exit code: $?\")",
+      "Skill(chart-xlsx)"
+    ]
+  }
+}
