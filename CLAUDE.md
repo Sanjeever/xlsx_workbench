@@ -2,49 +2,19 @@
 
 AI 驱动的 Excel 文件分析工作台。用户将 xlsx 文件放入 `data/` 目录，通过对话描述分析需求，由 agent 自动完成分析并将结果写入 `output/`。
 
-## 环境
+## 环境与运行方式
 
-使用 `uv` 管理依赖。运行 Python 脚本时始终使用：
-
-```bash
-uv run python -X utf8 .claude/skills/<skill>/<script>.py
-```
-
-`-X utf8` 强制 UTF-8 模式，避免 Windows 终端中文乱码。不要使用 `python` 或 `pip` 直接调用。
-
-### AI 临时脚本：uv inline script
-
-当现有脚本无法满足需求，需要临时编写代码时，使用 [uv inline script metadata（PEP 723）](https://docs.astral.sh/uv/guides/scripts/#declaring-script-dependencies)，通过 `uv run` 直接运行，**不得在 `.claude/skills/` 下创建新脚本文件**。
-
-格式：
-
-```python
-# /// script
-# requires-python = ">=3.11"
-# dependencies = ["pandas", "openpyxl", "rich"]
-# ///
-import sys
-...
-```
-
-运行方式（将脚本内容写入临时文件后执行，或用 heredoc 传入）：
+本项目**不预置任何 `.py` 脚本**。所有分析任务通过 [uv inline script metadata（PEP 723）](https://docs.astral.sh/uv/guides/scripts/#declaring-script-dependencies) 完成——用 Write 工具把脚本写入 `output/_tmp.py`，运行后立即删除：
 
 ```bash
-uv run -X utf8 - <<'EOF'
-# /// script
-# requires-python = ">=3.11"
-# dependencies = ["pandas", "openpyxl", "rich"]
-# ///
-import sys
-...
-EOF
+uv run python -X utf8 output/_tmp.py && rm output/_tmp.py
 ```
 
-> Windows bash 不支持 heredoc，改用 `Write` 工具将脚本写入 `output/_tmp.py`，运行后立即删除：
->
-> ```bash
-> uv run python -X utf8 output/_tmp.py && rm output/_tmp.py
-> ```
+- `-X utf8` 强制 UTF-8，避免 Windows 终端中文乱码
+- 不要直接调用 `python` 或 `pip`
+- **不得在 `.claude/skills/` 下创建任何 `.py` 文件**
+
+具体代码模板与契约见 `.claude/skills/xlsx/SKILL.md`。
 
 ## 目录约定
 
@@ -52,21 +22,7 @@ EOF
 |------|------|
 | `data/` | 用户放置 xlsx 输入文件的目录 |
 | `output/` | 所有分析结果的输出目录（图表、CSV、报告） |
-| `.claude/skills/` | Skills 及其配套 Python 脚本 |
-
-分析脚本与各自的 skill 放在同一目录，不单独设 `scripts/` 目录。
-
-## Skill 选择策略
-
-根据用户意图选择对应 skill，不要在意图明确时多此一举地运行其他 skill：
-
-| 用户意图关键词 | 优先 skill |
-|---------------|-----------|
-| 探索、看看、有哪些列、数据概况、结构、字段、缺失、分布、相关性 | `explore-xlsx` |
-| 画图、折线、柱状、散点、趋势、可视化 | `chart-xlsx` |
-| 筛选、排序、导出、前N名、条件过滤、取子集 | `export-xlsx` |
-
-意图不明时默认先用 `explore-xlsx` 获取数据概况，再询问下一步。
+| `.claude/skills/xlsx/SKILL.md` | 唯一的分析 skill（含代码模板与约定） |
 
 ## 新主题检测与 output 清理
 
@@ -92,12 +48,25 @@ EOF
 
 行数 > 50000 时，告知用户数据量较大，先对数值列进行抽样分析（`df.sample(10000, random_state=42)`），完成后说明已抽样及样本量。
 
-## 输出汇总
+## 输出汇总与结论解读
 
-每次分析结束后，列出本次生成的所有 `output/` 文件，格式：
+每次分析结束后**必须**两件事都做：
+
+**1. 列出本次生成的所有 `output/` 文件**
 
 ```
 output/文件名.csv  — 一句话说明内容
 output/文件名.png  — 一句话说明内容
 ```
+
+**2. 给出 3–5 条结论性 bullet**
+
+不是"已生成 X.png"，而是基于数据的**发现**：
+
+- ✅ "购买合同占 62%（412/668），是主导类型"
+- ✅ "产品 3 销量最高（共 156 件），但单笔金额低于均值"
+- ✅ "总金额与购买数量相关系数 0.78，正强相关"
+- ❌ "已生成柱状图"（这只是过程描述，不是发现）
+
+数据不支持给出有价值结论时，直接说明"数据未呈现明显规律"，不要硬凑。
 

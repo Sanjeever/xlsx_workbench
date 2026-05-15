@@ -35,7 +35,7 @@ xlsx_workbench/
 ├── data/           # 放置你的 xlsx 输入文件
 ├── output/         # 分析结果自动写入此处（图表、CSV）
 ├── .claude/
-│   └── skills/     # 内置分析技能脚本
+│   └── skills/xlsx # 内置分析 skill（含代码模板与约定）
 ├── CLAUDE.md       # Agent 行为配置（无需修改）
 ├── pyproject.toml  # 项目依赖声明
 └── uv.lock         # 依赖锁定文件
@@ -114,13 +114,9 @@ output/销售合同表_合同类型_bar.png  — 各合同类型数量柱状图
 output/top10_clients.csv           — 合同数前10名客户明细
 ```
 
-## 内置 Skills
+## 内置 Skill
 
-| Skill | 触发关键词 | 能做什么 |
-|-------|-----------|---------|
-| `explore-xlsx` | 探索、概况、有哪些列、缺失、分布、相关性 | 查看 sheet 结构、列类型、数值统计、缺失值、相关性矩阵 |
-| `chart-xlsx` | 画图、折线、柱状、散点、趋势、可视化 | 生成折线图、柱状图、散点图，输出 PNG |
-| `export-xlsx` | 筛选、排序、导出、前N名、条件过滤 | 按条件筛选行、排序后导出 CSV |
+项目内置一个 `xlsx` skill，覆盖结构探索、描述统计、分组聚合、条件筛选、排序 TopN、折线/柱状/散点图、相关性矩阵等全部 xlsx 分析需求。不预置 Python 脚本——Claude 按需现写并自动清理。
 
 ## 大文件说明
 
