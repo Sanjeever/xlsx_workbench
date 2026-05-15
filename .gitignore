@@ -31,5 +31,4 @@ output/*
 Thumbs.db
 desktop.ini
 
-# 临时脚本（AI 生成的临时文件）
-output/_tmp.py
+# 临时脚本（AI 生成的临时文件，位于 output/s_<session_id>/_tmp.py，已被上面的 output/* 覆盖）

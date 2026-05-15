@@ -4,10 +4,18 @@ AI 驱动的 Excel 文件分析工作台。用户将 xlsx 文件放入 `data/` �
 
 ## 环境与运行方式
 
-本项目**不预置任何 `.py` 脚本**。所有分析任务通过 [uv inline script metadata（PEP 723）](https://docs.astral.sh/uv/guides/scripts/#declaring-script-dependencies) 完成——用 Write 工具把脚本写入 `output/_tmp.py`，运行后立即删除：
+本项目**不预置任何 `.py` 脚本**。所有分析任务通过 [uv inline script metadata（PEP 723）](https://docs.astral.sh/uv/guides/scripts/#declaring-script-dependencies) 完成——用 Write 工具把脚本写入当前 session 子目录下的 `_tmp.py`，运行后立即删除。
+
+### 多 Claude Code 并发隔离
+
+为避免多个 Claude Code session 同时操作 `output/` 互相覆盖，每个 session 在自己的子目录里工作：
+
+- **首次执行分析前**，生成一个 6 位 hex `<session_id>`（如 `a3f9b2`），整个 Claude Code session 内复用、不要中途换
+- 所有脚本与产物都写到 `output/s_<session_id>/` 下，例如 `output/s_a3f9b2/_tmp.py`、`output/s_a3f9b2/销售合同表_report.md`
+- 跨 session 互不可见、互不删除——只读 / 写 / 删自己子目录内的东西
 
 ```bash
-uv run python -X utf8 output/_tmp.py && rm output/_tmp.py
+uv run python -X utf8 output/s_<session_id>/_tmp.py && rm output/s_<session_id>/_tmp.py
 ```
 
 - `-X utf8` 强制 UTF-8，避免 Windows 终端中文乱码
@@ -20,11 +28,11 @@ uv run python -X utf8 output/_tmp.py && rm output/_tmp.py
 
 | 目录 | 用途 |
 |------|------|
-| `data/` | 用户放置 xlsx 输入文件的目录 |
-| `output/` | 所有分析结果的输出目录（图表、CSV、报告） |
+| `data/` | 用户放置 xlsx 输入文件的目录（多 session 只读共享） |
+| `output/s_<session_id>/` | 当前 session 的所有产物（图表、CSV、报告、`_tmp.py`） |
 | `.claude/skills/xlsx/SKILL.md` | 唯一的分析 skill（含代码模板与约定） |
 
-## 新主题检测与 output 清理
+## 新主题检测与子目录清理
 
 每轮对话开始前，判断用户是否开启了**新的分析主题**。满足以下任一条件即视为新主题：
 
@@ -32,16 +40,16 @@ uv run python -X utf8 output/_tmp.py && rm output/_tmp.py
 - 分析目标明显转换（如从"探索销售数据"转向"分析用户留存"）
 - 用户明确说"重新开始"、"换一个"、"新的分析"
 
-**检测到新主题时**，在执行任何分析前，先用 Glob 列出 `output/` 现有文件，若非空则询问用户：
+**检测到新主题时**，**只检查自己的 session 子目录**（`output/s_<session_id>/`）——不要枚举 `output/` 下其他 session 的目录。用 Glob 列出当前子目录的现有文件，若非空则询问用户：
 
-> `output/` 里有 N 个文件（列出文件名）。开始新分析前要清空吗？
+> `output/s_<session_id>/` 里有 N 个文件（列出文件名）。开始新分析前要清空吗？
 
-- 用户确认清空 → `rm output/*`（`_tmp.py` 同样删除），然后继续分析
+- 用户确认清空 → `rm output/s_<session_id>/*`（`_tmp.py` 同样删除），然后继续分析
 - 用户选择保留 → 直接继续，不删除任何文件
 
 **不触发询问的情况**：
 - 同一主题的后续步骤（如先探索再画图）
-- `output/` 为空
+- 自己的 session 子目录为空或尚未创建
 - 用户本轮请求本身就是"清空 output"
 
 ## 大文件处理
@@ -52,11 +60,11 @@ uv run python -X utf8 output/_tmp.py && rm output/_tmp.py
 
 每次分析结束后**必须**两件事都做：
 
-**1. 列出本次生成的所有 `output/` 文件**
+**1. 列出本次生成的所有产物（带 session 子目录的完整路径）**
 
 ```
-output/文件名.csv  — 一句话说明内容
-output/文件名.png  — 一句话说明内容
+output/s_<session_id>/文件名.csv  — 一句话说明内容
+output/s_<session_id>/文件名.png  — 一句话说明内容
 ```
 
 **2. 给出 3–5 条结论性 bullet**

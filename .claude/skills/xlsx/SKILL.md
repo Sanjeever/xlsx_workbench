@@ -5,7 +5,9 @@ allowed-tools: Bash, Read, Write, Glob
 
 # xlsx
 
-唯一的 xlsx 分析 skill。所有任务通过 **uv inline script**（PEP 723）完成：用 Write 工具把脚本写入 `output/_tmp.py`，运行后立即删除。不在 `.claude/skills/` 下创建任何 `.py` 文件。
+唯一的 xlsx 分析 skill。所有任务通过 **uv inline script**（PEP 723）完成：用 Write 工具把脚本写入 `output/s_<session_id>/_tmp.py`，运行后立即删除。不在 `.claude/skills/` 下创建任何 `.py` 文件。
+
+**`<session_id>` 是 6 位 hex（如 `a3f9b2`）**，首次执行分析前生成、整个 Claude Code session 内复用。所有路径占位符（包括 `_tmp.py`、`OUT`、产物文件名）写脚本时都要替换成实际值。详见 `CLAUDE.md` 的「多 Claude Code 并发隔离」节。
 
 ## 触发条件
 
@@ -20,9 +22,9 @@ allowed-tools: Bash, Read, Write, Glob
    - 多个且未指定 → 列出文件名让用户选
    - 0 个 → 提示用户放文件后再试，停止
 2. **首次接触新文件**且用户意图不是"我已经知道要画什么"时，先跑**模板 1（结构探索）**，向用户报告 sheet 数、行数、列名、数值/类别列、缺失情况
-3. **选模板**（见下方代码模板节），复制到 `output/_tmp.py`，**只改参数与必要逻辑**，运行
-4. **运行 + 清理**：`uv run python -X utf8 output/_tmp.py && rm output/_tmp.py`
-5. **汇报**：列出本次新生成的 `output/` 文件，**并给 3–5 条结论性 bullet**（如"购买合同占 62%"、"产品 3 销量最高"——不是"已生成 X.png"）
+3. **选模板**（见下方代码模板节），把内容写入 `output/s_<session_id>/_tmp.py`，**只改参数、路径占位符与必要逻辑**，运行
+4. **运行 + 清理**：`uv run python -X utf8 output/s_<session_id>/_tmp.py && rm output/s_<session_id>/_tmp.py`
+5. **汇报**：列出本次新生成的 `output/s_<session_id>/` 下的文件（写完整路径），**并给 3–5 条结论性 bullet**（如"购买合同占 62%"、"产品 3 销量最高"——不是"已生成 X.png"）
 
 ## 代码契约
 
@@ -35,7 +37,7 @@ allowed-tools: Bash, Read, Write, Glob
   matplotlib.rcParams["font.family"] = ["Microsoft YaHei", "SimHei", "DejaVu Sans"]
   matplotlib.rcParams["axes.unicode_minus"] = False
   ```
-- **输出路径**：`output/<文件名>_<描述>.<ext>`，`Path("output").mkdir(exist_ok=True)`
+- **输出路径**：`output/s_<session_id>/<文件名>_<描述>.<ext>`，`Path("output/s_<session_id>").mkdir(parents=True, exist_ok=True)`
 - **CSV**：`encoding="utf-8-sig"`（Excel 直接打开不乱码）
 - **PNG**：`dpi=150, bbox_inches="tight"` + `plt.tight_layout()`
 - **大文件**（> 50000 行）：`df.sample(10000, random_state=42)`，汇报时注明已抽样
@@ -43,7 +45,7 @@ allowed-tools: Bash, Read, Write, Glob
 
 ## 代码模板
 
-下面 6 个模板都是开箱可跑的完整 inline script。把模板内容写入 `output/_tmp.py`，按用户需求改参数即可。
+下面 6 个模板都是开箱可跑的完整 inline script。把模板内容写入 `output/s_<session_id>/_tmp.py`，按用户需求改参数、并把 `OUT = Path("output/s_<session_id>")` 里的占位符替换为实际 session id。
 
 ### 模板 1：结构探索
 
@@ -62,7 +64,7 @@ from rich.table import Table
 
 console = Console()
 FILE = Path("data/<文件名>.xlsx")   # ← 改这里
-OUT = Path("output"); OUT.mkdir(exist_ok=True)
+OUT = Path("output/s_<session_id>"); OUT.mkdir(parents=True, exist_ok=True)
 
 try:
     sheets = pd.read_excel(FILE, sheet_name=None, engine="openpyxl")
@@ -125,7 +127,7 @@ BY = ["合同类型"]                       # ← 分组列（可多列）
 COLS = None                            # None = 全部数值列；或 ["总金额", "购买数量"]
 AGG = "sum"                            # sum / mean / count / median / min / max
 
-OUT = Path("output"); OUT.mkdir(exist_ok=True)
+OUT = Path("output/s_<session_id>"); OUT.mkdir(parents=True, exist_ok=True)
 
 try:
     df = pd.read_excel(FILE, sheet_name=SHEET, engine="openpyxl")
@@ -187,7 +189,7 @@ SORT_BY = "总金额"          # None = 不排序
 ASC = False                  # 降序
 TOP = 10                     # None = 全部
 
-OUT = Path("output"); OUT.mkdir(exist_ok=True)
+OUT = Path("output/s_<session_id>"); OUT.mkdir(parents=True, exist_ok=True)
 
 
 def apply_one(df, col, op, val):
@@ -272,7 +274,7 @@ AGG = "sum"                           # 聚合方式（bar/line 自动聚合时�
 STACKED = False                       # bar 堆叠
 TITLE = None                          # None = 自动生成
 
-OUT = Path("output"); OUT.mkdir(exist_ok=True)
+OUT = Path("output/s_<session_id>"); OUT.mkdir(parents=True, exist_ok=True)
 
 try:
     df = pd.read_excel(FILE, sheet_name=SHEET, engine="openpyxl")
@@ -342,7 +344,7 @@ FILE = Path("data/<文件名>.xlsx")     # ← 改这里
 SHEET = None
 METHOD = "pearson"                    # pearson / spearman / kendall
 
-OUT = Path("output"); OUT.mkdir(exist_ok=True)
+OUT = Path("output/s_<session_id>"); OUT.mkdir(parents=True, exist_ok=True)
 
 try:
     df = pd.read_excel(FILE, sheet_name=SHEET, engine="openpyxl")
@@ -394,7 +396,7 @@ from rich.console import Console
 
 console = Console()
 FILE = Path("data/<文件名>.xlsx")     # ← 改这里
-OUT = Path("output"); OUT.mkdir(exist_ok=True)
+OUT = Path("output/s_<session_id>"); OUT.mkdir(parents=True, exist_ok=True)
 
 try:
     df = pd.read_excel(FILE, engine="openpyxl")
@@ -419,14 +421,15 @@ except Exception as e:
 - **列名不存在** → 把脚本打印的实际列名展示给用户，让用户重选，不要猜测
 - **脚本运行失败（非 0 退出）** → 原样展示 stderr，不擅自修复
 - **筛选结果为空** → 告知用户并建议调整条件
-- **`rm output/_tmp.py` 失败** → 忽略，下次会覆盖
+- **`rm output/s_<session_id>/_tmp.py` 失败** → 忽略，下次会覆盖
 
 ## 运行命令
 
 ```bash
-# 1. 用 Write 工具把模板写入 output/_tmp.py（修改其中的参数）
+# 0. 若本 session 还没有 session_id，先生成 6 位 hex 并 mkdir -p output/s_<session_id>/
+# 1. 用 Write 工具把模板写入 output/s_<session_id>/_tmp.py（修改参数 + 把模板里的 <session_id> 占位符也替换掉）
 # 2. 运行 + 立即删除：
-uv run python -X utf8 output/_tmp.py && rm output/_tmp.py
+uv run python -X utf8 output/s_<session_id>/_tmp.py && rm output/s_<session_id>/_tmp.py
 ```
 
-Windows bash 不支持 heredoc，**统一走 `output/_tmp.py` 路径**。
+Windows bash 不支持 heredoc，**统一走 `output/s_<session_id>/_tmp.py` 路径**。

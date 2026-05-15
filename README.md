@@ -32,14 +32,17 @@ claude
 
 ```
 xlsx_workbench/
-├── data/           # 放置你的 xlsx 输入文件
-├── output/         # 分析结果自动写入此处（图表、CSV）
+├── data/                       # 放置你的 xlsx 输入文件
+├── output/
+│   └── s_<6位hex>/             # 每个 Claude Code session 一个子目录（图表、CSV、报告）
 ├── .claude/
-│   └── skills/xlsx # 内置分析 skill（含代码模板与约定）
-├── CLAUDE.md       # Agent 行为配置（无需修改）
-├── pyproject.toml  # 项目依赖声明
-└── uv.lock         # 依赖锁定文件
+│   └── skills/xlsx             # 内置分析 skill（含代码模板与约定）
+├── CLAUDE.md                   # Agent 行为配置（无需修改）
+├── pyproject.toml              # 项目依赖声明
+└── uv.lock                     # 依赖锁定文件
 ```
+
+> 同时启动多个 Claude Code 时，每个 session 在自己的 `output/s_<id>/` 子目录下工作，互不覆盖。
 
 ## 示例数据
 
@@ -107,11 +110,11 @@ claude
 
 ### 查看结果
 
-所有生成的文件都在 `output/` 目录，每次分析结束后 Claude 会列出清单：
+所有生成的文件都在当前 session 的 `output/s_<session_id>/` 子目录下，每次分析结束后 Claude 会列出清单：
 
 ```
-output/销售合同表_合同类型_bar.png  — 各合同类型数量柱状图
-output/top10_clients.csv           — 合同数前10名客户明细
+output/s_a3f9b2/销售合同表_合同类型_bar.png  — 各合同类型数量柱状图
+output/s_a3f9b2/top10_clients.csv           — 合同数前10名客户明细
 ```
 
 ## 内置 Skill
@@ -128,7 +131,7 @@ output/top10_clients.csv           — 合同数前10名客户明细
 无需手动处理。脚本统一使用 `-X utf8` 参数运行，Windows 下中文输出正常。
 
 **Q：分析结果太多，想清空 output/ 重新开始？**
-切换新文件或说"重新开始"时，Claude 会检测到新主题，并询问是否清空 `output/`，确认即可。
+切换新文件或说"重新开始"时，Claude 会检测到新主题，并询问是否清空**当前 session 的子目录**（`output/s_<session_id>/`），确认即可。其他 session 的子目录不会被动到。
 
 **Q：能分析多个 xlsx 文件吗？**
 每次分析针对 `data/` 下的一个文件。切换文件时，在对话里说明新文件名即可。
