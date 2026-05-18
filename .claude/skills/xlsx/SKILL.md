@@ -7,7 +7,7 @@ allowed-tools: Bash, Read, Write, Glob
 
 唯一的 xlsx 分析 skill。所有任务通过 **uv inline script**（PEP 723）完成：用 Write 工具把脚本写入 `output/s_<session_id>/_tmp.py`，运行后立即删除。不在 `.claude/skills/` 下创建任何 `.py` 文件。
 
-**`<session_id>` 是 6 位 hex（如 `a3f9b2`）**，首次执行分析前生成、整个 Claude Code session 内复用。所有路径占位符（包括 `_tmp.py`、`OUT`、产物文件名）写脚本时都要替换成实际值。详见 `CLAUDE.md` 的「多 Claude Code 并发隔离」节。
+**`<session_id>` 是 6 位 hex（如 `a3f9b2`）**，首次执行分析前用 `uv run python -c "import secrets; print(secrets.token_hex(3))"` 生成，整个 Claude Code session 内复用。生成后 `mkdir -p output/s_<session_id>/`。所有路径占位符（包括 `_tmp.py`、`OUT`、产物文件名）写脚本时都要替换成实际值。详见 `CLAUDE.md` 的「多 Claude Code 并发隔离」节。
 
 ## 触发条件
 
@@ -426,7 +426,10 @@ except Exception as e:
 ## 运行命令
 
 ```bash
-# 0. 若本 session 还没有 session_id，先生成 6 位 hex 并 mkdir -p output/s_<session_id>/
+# 0. 若本 session 还没有 session_id，先执行：
+#    export SID=$(uv run python -c "import secrets; print(secrets.token_hex(3))")
+#    mkdir -p output/s_$SID/
+#    后续所有路径用 output/s_$SID/ 替代 output/s_<session_id>/
 # 1. 用 Write 工具把模板写入 output/s_<session_id>/_tmp.py（修改参数 + 把模板里的 <session_id> 占位符也替换掉）
 # 2. 运行 + 立即删除：
 uv run python -X utf8 output/s_<session_id>/_tmp.py && rm output/s_<session_id>/_tmp.py
