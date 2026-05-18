@@ -4,7 +4,10 @@ AI 驱动的 Excel 文件分析工作台。用户将 xlsx 文件放入 `data/` �
 
 ## 环境与运行方式
 
-本项目**不预置任何 `.py` 脚本**。所有分析任务通过 [uv inline script metadata（PEP 723）](https://docs.astral.sh/uv/guides/scripts/#declaring-script-dependencies) 完成——用 Write 工具把脚本写入当前 session 子目录下的 `_tmp.py`，运行后立即删除。
+本项目**不预置任何 `.py` 脚本**，所有分析任务通过 uv inline script（PEP 723）完成。代码模板、代码契约与运行命令详见 `.claude/skills/xlsx/SKILL.md`。
+
+- 不要直接调用 `python` 或 `pip`，始终用 `uv run`
+- **不得在 `.claude/skills/` 下创建任何 `.py` 文件**
 
 ### 多 Claude Code 并发隔离
 
@@ -18,16 +21,6 @@ AI 驱动的 Excel 文件分析工作台。用户将 xlsx 文件放入 `data/` �
 - 所有脚本与产物都写到 `output/s_<session_id>/` 下，例如 `output/s_a3f9b2/_tmp.py`、`output/s_a3f9b2/销售合同表_report.md`
 - 跨 session 互不可见、互不删除——只读 / 写 / 删自己子目录内的东西
 
-```bash
-uv run python -X utf8 output/s_<session_id>/_tmp.py && rm output/s_<session_id>/_tmp.py
-```
-
-- `-X utf8` 强制 UTF-8，避免 Windows 终端中文乱码
-- 不要直接调用 `python` 或 `pip`
-- **不得在 `.claude/skills/` 下创建任何 `.py` 文件**
-
-具体代码模板与契约见 `.claude/skills/xlsx/SKILL.md`。
-
 ## 目录约定
 
 | 目录 | 用途 |
@@ -35,6 +28,19 @@ uv run python -X utf8 output/s_<session_id>/_tmp.py && rm output/s_<session_id>/
 | `data/` | 用户放置 xlsx 输入文件的目录（多 session 只读共享） |
 | `output/s_<session_id>/` | 当前 session 的所有产物（图表、CSV、报告、`_tmp.py`） |
 | `.claude/skills/xlsx/SKILL.md` | 唯一的分析 skill（含代码模板与约定） |
+
+## 分析流程
+
+每次分析按以下步骤推进：
+
+1. **确认目标文件**：用 Glob 列出 `data/*.xlsx`
+   - 1 个 → 直接用
+   - 多个且未指定 → 用 `AskUserQuestion` 列出文件名让用户选
+   - 0 个 → 提示用户放文件后再试，停止
+2. **首次接触新文件**且用户意图不明确时，先跑结构探索（SKILL.md 模板 1），向用户报告 sheet 数、行数、列名、数值/类别列、缺失情况
+3. **选模板**（见 SKILL.md 代码模板），写入 `output/s_<session_id>/_tmp.py`，只改参数、路径占位符与必要逻辑
+4. **运行 + 清理**：按 SKILL.md 运行命令执行
+5. **汇报**：列出本次新生成的文件（写完整路径），并给 3–5 条结论性 bullet
 
 ## 新主题检测与子目录清理
 

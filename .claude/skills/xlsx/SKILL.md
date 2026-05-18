@@ -7,24 +7,13 @@ allowed-tools: Bash, Read, Write, Glob
 
 唯一的 xlsx 分析 skill。所有任务通过 **uv inline script**（PEP 723）完成：用 Write 工具把脚本写入 `output/s_<session_id>/_tmp.py`，运行后立即删除。不在 `.claude/skills/` 下创建任何 `.py` 文件。
 
-**`<session_id>` 是 6 位 hex（如 `a3f9b2`）**，首次执行分析前用 `uv run python -c "import secrets; print(secrets.token_hex(3))"` 生成，整个 Claude Code session 内复用。生成后 `mkdir -p output/s_<session_id>/`。所有路径占位符（包括 `_tmp.py`、`OUT`、产物文件名）写脚本时都要替换成实际值。详见 `CLAUDE.md` 的「多 Claude Code 并发隔离」节。
+`<session_id>` 由 CLAUDE.md 约定的会话隔离机制管理，整个 session 内复用。写脚本时，所有路径占位符（`_tmp.py`、`OUT`、产物文件名）需替换为实际 session_id。详见 `CLAUDE.md` 的「多 Claude Code 并发隔离」节。
 
 ## 触发条件
 
 **触发**：用户提到 xlsx / Excel / `data/` 下的文件，或任何数据分析意图——看看、概况、画图、筛选、导出、统计、对比、排名、相关性、汇总、趋势、分布、Top N 等。
 
 **不触发**：通用编程问题、与 xlsx 无关的任务、要求修改 skill 本身。
-
-## 执行步骤
-
-1. **确认目标文件**：用 Glob 列出 `data/*.xlsx`
-   - 1 个 → 直接用
-   - 多个且未指定 → 列出文件名让用户选
-   - 0 个 → 提示用户放文件后再试，停止
-2. **首次接触新文件**且用户意图不是"我已经知道要画什么"时，先跑**模板 1（结构探索）**，向用户报告 sheet 数、行数、列名、数值/类别列、缺失情况
-3. **选模板**（见下方代码模板节），把内容写入 `output/s_<session_id>/_tmp.py`，**只改参数、路径占位符与必要逻辑**，运行
-4. **运行 + 清理**：`uv run python -X utf8 output/s_<session_id>/_tmp.py && rm output/s_<session_id>/_tmp.py`
-5. **汇报**：列出本次新生成的 `output/s_<session_id>/` 下的文件（写完整路径），**并给 3–5 条结论性 bullet**（如"购买合同占 62%"、"产品 3 销量最高"——不是"已生成 X.png"）
 
 ## 代码契约
 
@@ -425,14 +414,12 @@ except Exception as e:
 
 ## 运行命令
 
+`<session_id>` 由 CLAUDE.md 的会话隔离机制管理，skill 不负责生成。
+
 ```bash
-# 0. 若本 session 还没有 session_id，先执行：
-#    export SID=$(uv run python -c "import secrets; print(secrets.token_hex(3))")
-#    mkdir -p output/s_$SID/
-#    后续所有路径用 output/s_$SID/ 替代 output/s_<session_id>/
-# 1. 用 Write 工具把模板写入 output/s_<session_id>/_tmp.py（修改参数 + 把模板里的 <session_id> 占位符也替换掉）
+# 1. 用 Write 工具把模板写入 output/s_<session_id>/_tmp.py（修改参数 + 把 <session_id> 替换为实际值）
 # 2. 运行 + 立即删除：
 uv run python -X utf8 output/s_<session_id>/_tmp.py && rm output/s_<session_id>/_tmp.py
 ```
 
-Windows bash 不支持 heredoc，**统一走 `output/s_<session_id>/_tmp.py` 路径**。
+- `-X utf8` 强制 UTF-8，避免 Windows 终端中文乱码
